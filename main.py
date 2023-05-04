@@ -1,76 +1,65 @@
-from flask import Flask, request, jsonify
-from fastapi import FastAPI, File, UploadFile
-from diffusers import StableDiffusionInpaintPipeline, ControlNetModel, UniPCMultistepScheduler
-import torch
-from pipeline_stable_diffusion_controlnet_inpaint import *
-from torch import autocast
-import numpy as np
-import io 
-import base64
-import cv2 
+
+from fastapi import FastAPI, HTTPException, Form, UploadFile, File, Response
+# from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
-import torch
+import io
+from base64 import b64encode
+import os
+from model import *
+from typing import Union
+from io import BytesIO
+import base64
+import time
+import shutil
 
-from pydantic import BaseModel
 
-app = FastAPI()
+#import imageio as iio
+def get_mask_image3(init_img_sd):
+    init_img_sd_array = np.array(init_img_sd)
+    init_img_sd_array[np.where(init_img_sd_array[:, :, 3] > 0 )] = [255,255,255,255]
+    init_img_sd_array[np.where(init_img_sd_array[:, :, 3] <= 0 )] = [0,0,0,255]
+    out_img = Image.fromarray(init_img_sd_array)
+#     blur = GaussianBlur(11,20)
+#     out_img = blur(out_img)
+    return out_img
 
-class InpaintingRequest(BaseModel):
-    prompt: str
-    num_steps: int = 10
-    image_file: UploadFile = File(...)
 
-def inpaint_image(prompt: str, num_steps: int,image: Image) -> Image:
-    image = Image.open(image)
-    # Preprocess mask
-    init_img_sd_array = np.array(image)
-    init_img_sd_array[np.where(init_img_sd_array[:, :, 3] > 0 )] = [0,0,0,255]
-    init_img_sd_array[np.where(init_img_sd_array[:, :, 3] <= 0 )] = [255,255,255,255]
-    mask = Image.fromarray(init_img_sd_array)
-    # preprocess canny image
-    image=np.array(image)
-    canny_image = cv2.Canny(image, 100, 200)
-    canny_image = canny_image[:, :, None]
-    canny_image = np.concatenate([canny_image, canny_image, canny_image], axis=2)
-    image=Image.fromarray(image)
-    canny_image = Image.fromarray(canny_image)
+app = FastAPI(title="Project Arch")
 
-     # Load ControlNet model and StableDiffusionInpaintPipeline
-    # load control net and stable diffusion v1-5
-    controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-canny", torch_dtype=torch.float16)
-    pipe = StableDiffusionControlNetInpaintPipeline.from_pretrained(
-     "runwayml/stable-diffusion-inpainting", controlnet=controlnet, torch_dtype=torch.float16)
-    # speed up diffusion process with faster scheduler and memory optimization
-    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-    pipe.enable_xformers_memory_efficient_attention()
-    pipe.to('cuda')
+origins = [
+    "http://localhost",
+    "http://localhost:3000",
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    generator = torch.manual_seed(-1)
-    output= pipe(
-        prompt,
-        num_inference_steps=20,
-        generator=generator,
-        image=image,
-        control_image=canny_image,
-        controlnet_conditioning_scale = 1.0,
-        mask_image=mask
-    )
-    out_img = output.images[0]
 
-    img_byte_arr = io.BytesIO()
-    out_img.save(img_byte_arr, format='PNG')
-    img_byte_arr = img_byte_arr.getvalue()
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
 
-    # Return output image as response
-    return jsonify({'image': base64.b64encode(img_byte_arr).decode('utf-8')})
 
-@app.post("/inpaint")
-def inpaint(request: InpaintingRequest):
-    image = Image.open(request.image_file.file)
+@app.post("/design/sd", status_code=200)
 
-    # Inpaint image
-    out_image = inpaint_image(request.prompt, request.num_steps, image)
+def predict(withoutbg_image_base64 : str = Form(...), prompt : str = Form(...), randID: str = Form(...), username: str = Form(...), model_name: str = Form(...)):
+    #withoutbg_image_base64 = b'=' * (-len(withoutbg_image_base64) % 4)
+    #withoutbg_image_encoded = withoutbg_image_base64.encode('utf-8')
+    withoutbg_image_bytes = BytesIO(base64.b64decode(withoutbg_image_base64))
+    withoutbg_image = Image.open(withoutbg_image_bytes)
+    print(model_name)
+    if model_name == "model_3":
+        try:
+            print("Guys")
+        except:
+            shutil.rmtree(randID)
+            image_base64 = generate(withoutbg_image, prompt,randID, username, model_name = "model_1")
+    else:
+        image_base64 = generate(withoutbg_image, prompt,randID, username, model_name = model_name)
 
-    out_image.save("output.png")
-    # Return output image as response
-    return out_image
+    return {'image_base64': image_base64}
