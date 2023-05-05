@@ -62,10 +62,17 @@ def get_canny(image):
   return canny_image
 
 def sd_controlnet_inpainting(init_image,prompt):
-    image = Image.open(init_image)
+    print("at sd controlnet_inpainting function")
+    #init_image_encoded = init_image.encode('utf-8')
 
-    mask_image=get_mask_image3(image)
-    canny_image=get_canny(image)
+    #init_image_bytes = BytesIO(base64.b64decode(init_image))
+    im_bytes = init_image.getvalue() 
+    im_b64 = base64.b64encode(im_bytes).decode('utf-8')
+    #im_bytes.save("init_image.png")
+    init_image = Image.open(im_b64)
+    
+    mask_image=get_mask_image3(init_image)
+    canny_image=get_canny(init_image)
     # load control net and stable diffusion v1-5
     controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-canny", torch_dtype=torch.float16)
     pipe = StableDiffusionControlNetInpaintPipeline.from_pretrained(
@@ -80,42 +87,38 @@ def sd_controlnet_inpainting(init_image,prompt):
         prompt,
         num_inference_steps=20,
         generator=generator,
-        image=image,
+        image=init_image,
         control_image=canny_image,
         controlnet_conditioning_scale = 1.0,
         mask_image=mask_image
     ).images[0]
     return output
 
-def generate(withoutbg_img, prompt, randID, user_name, model_name = "model_1"):
-    
-    os.mkdir(randID)
+def generate(withoutbg_img, prompt, model_name = "model_1"):
 
-    start_time = time.time()
-    (w_in,h_in) = withoutbg_img.size
-    if w_in > h_in:
-        new_size = (w_in, w_in)
-    else:
-        new_size = (h_in, h_in)
-
+    print("at generate function in model.py")
     withoutbg_img_new = withoutbg_img    
 
 
     withoutbg_img_sd = withoutbg_img_new
-    mask_img_sd = get_mask_image3(withoutbg_img_sd)
-    canny_image= get_canny(withoutbg_img_sd)
 
-    mask_img_sd_path = randID + "/" + "mask_img_sd_" + randID + ".png"
-    canny_image_sd_path = randID + "/" + "canny_sd_" + randID + ".png"
-    withoutbg_img_sd_path = randID + "/" + "withoutbg_img_sd_" + randID + ".png"
+    #mask_img_sd_path = randID + "/" + "mask_img_sd_" + randID + ".png"
+    #canny_image_sd_path = randID + "/" + "canny_sd_" + randID + ".png"
+    #withoutbg_img_sd_path = randID + "/" + "withoutbg_img_sd_" + randID + ".png"
 
-    canny_image.save(canny_image_sd_path)
-    mask_img_sd.save(mask_img_sd_path)
-    withoutbg_img_sd.save(withoutbg_img_sd_path)
+    #canny_image.save(canny_image_sd_path)
+    #mask_img_sd.save(mask_img_sd_path)
+    #withoutbg_img_sd.save(withoutbg_img_sd_path)
     if model_name == "model_1":
         sd_output = sd_controlnet_inpainting(withoutbg_img_sd,prompt)
         sd_output_2 = sd_output
-        sd_output_2.save(randID + "/" + "output_" + randID + ".jpeg")
-        with open(randID + "/" + "output_" + randID + ".jpeg", "rb") as img_file:
-            image_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+        sd_output_2.save("output_" +".jpeg")
+        #with open("output_" + ".jpeg", "rb") as img_file:
+
+        image_base64 = base64.b64encode(sd_output_2.read()).decode('utf-8')
+        img_bytes = base64.b64decode(image_base64.split(',')[1])
+        img_io = BytesIO(img_bytes)
+        img = Image.open(img_io)
+        img.save('output.png', 'PNG')
+
     return image_base64
