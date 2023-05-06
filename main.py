@@ -62,7 +62,7 @@ def read_root():
 
 # this accepts the base64encoded string 
 def gen_output(base64_string:str=Form(...),prompt:str=Form(...)):
-   custom_model(base64_string,prompt)
+   return custom_model(base64_string,prompt)
 
 #test.py 
 #def img2base64():
