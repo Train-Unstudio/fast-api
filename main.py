@@ -6,6 +6,8 @@ import time
 import logging 
 
 from fastapi import FastAPI, HTTPException, Form, UploadFile, File, Response
+from fastapi.routing import APIRouter
+
 # from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -37,6 +39,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 app = FastAPI(title="Project Arch")
 
+app.include_router(router, prefix='/api/v1')
 origins = [
     "http://localhost",
     "http://localhost:3000",
