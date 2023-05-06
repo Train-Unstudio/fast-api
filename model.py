@@ -32,6 +32,7 @@ def get_mask_image3(init_img_sd):
     init_img_sd_array = np.array(init_img_sd)
     init_img_sd_array[np.where(init_img_sd_array[:, :, 3] > 0 )] = [255,255,255,255]
     init_img_sd_array[np.where(init_img_sd_array[:, :, 3] <= 0 )] = [0,0,0,255]
+    #out_img= ~ init_img_sd_array
     out_img = Image.fromarray(init_img_sd_array)
     out_img.save('mask_image_std_serum.png') # rename the file corresponding to the file name
 
