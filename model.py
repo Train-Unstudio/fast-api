@@ -12,6 +12,7 @@ import base64
 from io import BytesIO
 from PIL import Image, ImageChops, ImageFile
 from io import BytesIO
+from pipeline_stable_diffusion_controlnet_inpaint import *
 #from cv2 import dnn_superres
 from diffusers import StableDiffusionInpaintPipeline, ControlNetModel, UniPCMultistepScheduler
 import torch
